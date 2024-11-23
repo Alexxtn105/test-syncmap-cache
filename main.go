@@ -6,7 +6,11 @@ import (
 	"math/big"
 	"net/http"
 	"strconv"
+	"sync"
+	"time"
 )
+
+var cache = &sync.Map{}
 
 func main() {
 	//	fmt.Println("Hello, World!")
@@ -34,7 +38,27 @@ func ginFibonacciHandler(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 	}
+
+	// проверяем, есть ли результат в кэше
+	if cacheResult, ok := cache.Load(nInt); ok {
+		fmt.Println("Данные в кэше!")
+		// возвращаем результат из кэша
+		c.JSON(http.StatusOK, gin.H{"result": cacheResult})
+		return
+	}
+	fmt.Println("Данных в кэше нет!")
+	// расчет числа Фибоначчи
 	result := calculateFibonacci(nInt)
+
+	// Сохраняем результат в кэш со временем жизни (TTL). Например, на 10 секунд
+	cache.Store(nInt, result)
+
+	// запускаем горутину для удаления данных из кэша через заданное время
+	go func() {
+		time.Sleep(10 * time.Second)
+		cache.Delete(nInt)
+	}()
+
 	c.JSON(http.StatusOK, gin.H{"result": result})
 }
 
